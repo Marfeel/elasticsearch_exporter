@@ -20,7 +20,7 @@ var (
 		indexDate := ""
 		indexFullName := strings.Split(indexName, "-")
 		indexPrefix := indexFullName[0]
-		if len(indexFullName) > 2 {
+		if len(indexFullName) > 2 && indexFullName[0] == "shrink" {
 			indexShrink = "true"
 			indexPrefix = indexFullName[1]
 			indexDate = indexFullName[2]
