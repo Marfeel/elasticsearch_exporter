@@ -55,6 +55,9 @@ func TestIndicesSettings(t *testing.T) {
 				if value.StepInfo.Reason != "" && !strings.Contains(value.StepInfo.Reason, "all shards allocated on the same node to shrink index") {
 					t.Errorf("Error detecting step failing reason")
 				}
+				/*t.Errorf(key)
+				t.Errorf(value.FailedStep)
+				t.Errorf(value.StepInfo.Reason)*/
 			}
 			if counter != 3 {
 				t.Errorf("Wrong number of indexes")

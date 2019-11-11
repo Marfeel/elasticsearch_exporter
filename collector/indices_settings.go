@@ -19,8 +19,8 @@ type IndicesSettings struct {
 	url    *url.URL
 
 	up                              prometheus.Gauge
-	readOnlyIndices                 prometheus.Gauge
 	totalScrapes, jsonParseFailures prometheus.Counter
+	indicesMetrics                  []*Indices
 }
 
 // NewIndicesSettings defines Indices Settings Prometheus metrics
@@ -38,14 +38,29 @@ func NewIndicesSettings(logger log.Logger, client *http.Client, url *url.URL) *I
 			Name: prometheus.BuildFQName(namespace, "indices_settings_stats", "total_scrapes"),
 			Help: "Current total ElasticSearch Indices Settings scrapes.",
 		}),
-		readOnlyIndices: prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: prometheus.BuildFQName(namespace, "indices_settings_stats", "read_only_indices"),
-			Help: "Current number of read only indices within cluster",
-		}),
 		jsonParseFailures: prometheus.NewCounter(prometheus.CounterOpts{
 			Name: prometheus.BuildFQName(namespace, "indices_settings_stats", "json_parse_failures"),
 			Help: "Number of errors while parsing JSON.",
 		}),
+
+		indicesMetrics: []*Indices{
+			{
+				Opts: prometheus.GaugeOpts{
+					Namespace:   namespace,
+					Subsystem:   "indices",
+					Name:        "shards_docs",
+					ConstLabels: nil,
+					Help:        "Count of documents on this shard",
+				},
+				Value: func(data IndexStatsIndexShardsDetailResponse) float64 {
+					return float64(data.Docs.Count)
+				},
+				Labels: []string{"index", "shard", "node"},
+				LabelValues: func(indexName string, shardName string, data IndexStatsIndexShardsDetailResponse) prometheus.Labels {
+					return prometheus.Labels{"index": indexName, "shard": shardName, "node": data.Routing.Node}
+				},
+			},
+		},
 	}
 }
 
@@ -53,7 +68,6 @@ func NewIndicesSettings(logger log.Logger, client *http.Client, url *url.URL) *I
 func (cs *IndicesSettings) Describe(ch chan<- *prometheus.Desc) {
 	ch <- cs.up.Desc()
 	ch <- cs.totalScrapes.Desc()
-	ch <- cs.readOnlyIndices.Desc()
 	ch <- cs.jsonParseFailures.Desc()
 }
 
@@ -88,7 +102,7 @@ func (cs *IndicesSettings) getAndParseURL(u *url.URL, data interface{}) error {
 func (cs *IndicesSettings) fetchAndDecodeIndicesSettings() (IndicesSettingsResponse, error) {
 
 	u := *cs.url
-	u.Path = path.Join(u.Path, "/_all/_settings")
+	u.Path = path.Join(u.Path, "/_all/_ilm/explain?filter_path=indices.*.failed_step,indices.*.step_info.reason")
 	var asr IndicesSettingsResponse
 	err := cs.getAndParseURL(&u, &asr)
 	if err != nil {
@@ -106,12 +120,10 @@ func (cs *IndicesSettings) Collect(ch chan<- prometheus.Metric) {
 		ch <- cs.up
 		ch <- cs.totalScrapes
 		ch <- cs.jsonParseFailures
-		ch <- cs.readOnlyIndices
 	}()
 
 	asr, err := cs.fetchAndDecodeIndicesSettings()
 	if err != nil {
-		cs.readOnlyIndices.Set(0)
 		cs.up.Set(0)
 		_ = level.Warn(cs.logger).Log(
 			"msg", "failed to fetch and decode cluster settings stats",
@@ -121,11 +133,14 @@ func (cs *IndicesSettings) Collect(ch chan<- prometheus.Metric) {
 	}
 	cs.up.Set(1)
 
-	var c int
-	for _, value := range asr.Indices {
-		if value.FailedStep != "" {
-			c++
-		}
+	// Index stats
+	for indexName, indexStats := range asr.Indices {
+		ch <- prometheus.MustNewConstMetric(
+			metric.Desc,
+			metric.Type,
+			metric.Value(indexStats),
+			metric.Labels(indexName)...,
+		)
 	}
-	cs.readOnlyIndices.Set(float64(c))
+	prometheus.NewGaugeVec(metric.Opts, metric.Labels).Collect(ch)
 }
