@@ -134,13 +134,11 @@ func (cs *IndicesILM) Collect(ch chan<- prometheus.Metric) {
 	cs.up.Set(1)
 
 	// Index stats
-	for indexName, indexStats := range asr.Indices {
+	for indexName, indexILM := range asr.Indices {
 		ch <- prometheus.MustNewConstMetric(
-			indexStats.Desc,
-			indexStats.Type,
-			indexStats.Value(indexStats),
-			indexStats.Labels(indexName)...,
+			indexName,
+			indexILM.FailedStep,
+			indexILM.StepInfo.Reason,
 		)
 	}
-	prometheus.NewGaugeVec(metric.Opts, metric.Labels).Collect(ch)
 }
