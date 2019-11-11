@@ -12,8 +12,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// IndicesSettings information struct
-type IndicesSettings struct {
+// IndicesILM information struct
+type IndicesILM struct {
 	logger log.Logger
 	client *http.Client
 	url    *url.URL
@@ -23,23 +23,23 @@ type IndicesSettings struct {
 	indicesMetrics                  []*Indices
 }
 
-// NewIndicesSettings defines Indices Settings Prometheus metrics
-func NewIndicesSettings(logger log.Logger, client *http.Client, url *url.URL) *IndicesSettings {
-	return &IndicesSettings{
+// NewIndicesILM defines Indices ILM Prometheus metrics
+func NewIndicesILM(logger log.Logger, client *http.Client, url *url.URL) *IndicesILM {
+	return &IndicesILM{
 		logger: logger,
 		client: client,
 		url:    url,
 
 		up: prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: prometheus.BuildFQName(namespace, "indices_settings_stats", "up"),
-			Help: "Was the last scrape of the ElasticSearch Indices Settings endpoint successful.",
+			Name: prometheus.BuildFQName(namespace, "indices_ilm_errors", "up"),
+			Help: "Was the last scrape of the ElasticSearch Indices ILM endpoint successful.",
 		}),
 		totalScrapes: prometheus.NewCounter(prometheus.CounterOpts{
-			Name: prometheus.BuildFQName(namespace, "indices_settings_stats", "total_scrapes"),
-			Help: "Current total ElasticSearch Indices Settings scrapes.",
+			Name: prometheus.BuildFQName(namespace, "indices_ilm_errors", "total_scrapes"),
+			Help: "Current total ElasticSearch Indices ILM scrapes.",
 		}),
 		jsonParseFailures: prometheus.NewCounter(prometheus.CounterOpts{
-			Name: prometheus.BuildFQName(namespace, "indices_settings_stats", "json_parse_failures"),
+			Name: prometheus.BuildFQName(namespace, "indices_ilm_errors", "json_parse_failures"),
 			Help: "Number of errors while parsing JSON.",
 		}),
 
@@ -47,7 +47,7 @@ func NewIndicesSettings(logger log.Logger, client *http.Client, url *url.URL) *I
 			{
 				Opts: prometheus.GaugeOpts{
 					Namespace:   namespace,
-					Subsystem:   "indices",
+					Subsystem:   "indices_ilm_errors",
 					Name:        "shards_docs",
 					ConstLabels: nil,
 					Help:        "Count of documents on this shard",
@@ -65,13 +65,13 @@ func NewIndicesSettings(logger log.Logger, client *http.Client, url *url.URL) *I
 }
 
 // Describe add Snapshots metrics descriptions
-func (cs *IndicesSettings) Describe(ch chan<- *prometheus.Desc) {
+func (cs *IndicesILM) Describe(ch chan<- *prometheus.Desc) {
 	ch <- cs.up.Desc()
 	ch <- cs.totalScrapes.Desc()
 	ch <- cs.jsonParseFailures.Desc()
 }
 
-func (cs *IndicesSettings) getAndParseURL(u *url.URL, data interface{}) error {
+func (cs *IndicesILM) getAndParseURL(u *url.URL, data interface{}) error {
 	res, err := cs.client.Get(u.String())
 	if err != nil {
 		return fmt.Errorf("failed to get from %s://%s:%s%s: %s",
@@ -99,11 +99,11 @@ func (cs *IndicesSettings) getAndParseURL(u *url.URL, data interface{}) error {
 	return nil
 }
 
-func (cs *IndicesSettings) fetchAndDecodeIndicesSettings() (IndicesSettingsResponse, error) {
+func (cs *IndicesILM) fetchAndDecodeIndicesILM() (IndicesILMResponse, error) {
 
 	u := *cs.url
 	u.Path = path.Join(u.Path, "/_all/_ilm/explain?filter_path=indices.*.failed_step,indices.*.step_info.reason")
-	var asr IndicesSettingsResponse
+	var asr IndicesILMResponse
 	err := cs.getAndParseURL(&u, &asr)
 	if err != nil {
 		return asr, err
@@ -112,8 +112,8 @@ func (cs *IndicesSettings) fetchAndDecodeIndicesSettings() (IndicesSettingsRespo
 	return asr, err
 }
 
-// Collect gets all indices settings metric values
-func (cs *IndicesSettings) Collect(ch chan<- prometheus.Metric) {
+// Collect gets all indices ILM metric values
+func (cs *IndicesILM) Collect(ch chan<- prometheus.Metric) {
 
 	cs.totalScrapes.Inc()
 	defer func() {
@@ -122,11 +122,11 @@ func (cs *IndicesSettings) Collect(ch chan<- prometheus.Metric) {
 		ch <- cs.jsonParseFailures
 	}()
 
-	asr, err := cs.fetchAndDecodeIndicesSettings()
+	asr, err := cs.fetchAndDecodeIndicesILM()
 	if err != nil {
 		cs.up.Set(0)
 		_ = level.Warn(cs.logger).Log(
-			"msg", "failed to fetch and decode cluster settings stats",
+			"msg", "failed to fetch and decode index ILM stats",
 			"err", err,
 		)
 		return
@@ -136,10 +136,10 @@ func (cs *IndicesSettings) Collect(ch chan<- prometheus.Metric) {
 	// Index stats
 	for indexName, indexStats := range asr.Indices {
 		ch <- prometheus.MustNewConstMetric(
-			metric.Desc,
-			metric.Type,
-			metric.Value(indexStats),
-			metric.Labels(indexName)...,
+			indexStats.Desc,
+			indexStats.Type,
+			indexStats.Value(indexStats),
+			indexStats.Labels(indexName)...,
 		)
 	}
 	prometheus.NewGaugeVec(metric.Opts, metric.Labels).Collect(ch)

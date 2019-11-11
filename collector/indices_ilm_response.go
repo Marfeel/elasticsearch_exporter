@@ -1,7 +1,7 @@
 package collector
 
 // indexStatsResponse is a representation of a Elasticsearch Index Stats
-type IndicesSettingsResponse struct {
+type IndicesILMResponse struct {
 	Indices map[string]IndexStatsILMResponse `json:"indices"`
 }
 
