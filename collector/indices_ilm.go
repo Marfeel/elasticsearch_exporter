@@ -12,6 +12,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+type indexILMMetric struct {
+	Type        prometheus.ValueType
+	Desc        *prometheus.Desc
+	Value       float64
+	Labels      []string
+	LabelValues func(indexName string, shardName string, data IndexStatsIndexShardsDetailResponse) prometheus.Labels
+}
+
 // IndicesILM information struct
 type IndicesILM struct {
 	logger log.Logger
@@ -20,7 +28,7 @@ type IndicesILM struct {
 
 	up                              prometheus.Gauge
 	totalScrapes, jsonParseFailures prometheus.Counter
-	indicesMetrics                  []*Indices
+	indicesMetrics                  []*indexILMMetric
 }
 
 // NewIndicesILM defines Indices ILM Prometheus metrics
@@ -43,21 +51,18 @@ func NewIndicesILM(logger log.Logger, client *http.Client, url *url.URL) *Indice
 			Help: "Number of errors while parsing JSON.",
 		}),
 
-		indicesMetrics: []*Indices{
+		indicesMetrics: []*indexILMMetric{
 			{
-				Opts: prometheus.GaugeOpts{
-					Namespace:   namespace,
-					Subsystem:   "indices_ilm_errors",
-					Name:        "shards_docs",
-					ConstLabels: nil,
-					Help:        "Count of documents on this shard",
-				},
-				Value: func(data IndexStatsIndexShardsDetailResponse) float64 {
-					return float64(data.Docs.Count)
-				},
-				Labels: []string{"index", "shard", "node"},
-				LabelValues: func(indexName string, shardName string, data IndexStatsIndexShardsDetailResponse) prometheus.Labels {
-					return prometheus.Labels{"index": indexName, "shard": shardName, "node": data.Routing.Node}
+				Type: prometheus.GaugeValue,
+				Desc: prometheus.NewDesc(
+					prometheus.BuildFQName(namespace, "indices_ilm_errors", "error_step"),
+					"Indexes with ILM Errors",
+					defaultIndexLabels, nil,
+				),
+				Value:  1,
+				Labels: []string{"index", "step", "reason"},
+				LabelValues: func(indexName, data IndexStatsILMResponse) prometheus.Labels {
+					return prometheus.Labels{"index": indexName, "step": data.FailedStep, "reason": data.StepInfo.Reason}
 				},
 			},
 		},
