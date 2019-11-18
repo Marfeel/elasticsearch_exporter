@@ -12,12 +12,19 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+var (
+	defaultILMIndexLabels      = []string{"index", "step", "reason"}
+	defaultILMIndexLabelValues = func(indexName string, ilmMetric IndexStatsILMResponse) []string {
+		return []string{indexName, ilmMetric.FailedStep, ilmMetric.StepInfo.Reason}
+	}
+)
+
 type indexILMMetric struct {
 	Type        prometheus.ValueType
 	Desc        *prometheus.Desc
 	Value       float64
 	Labels      []string
-	LabelValues func(indexName string, shardName string, data IndexStatsIndexShardsDetailResponse) prometheus.Labels
+	LabelValues func(indexName string, data IndexStatsIndexShardsDetailResponse) []string
 }
 
 // IndicesILM information struct
@@ -60,10 +67,7 @@ func NewIndicesILM(logger log.Logger, client *http.Client, url *url.URL) *Indice
 					defaultIndexLabels, nil,
 				),
 				Value:  1,
-				Labels: []string{"index", "step", "reason"},
-				LabelValues: func(indexName, data IndexStatsILMResponse) prometheus.Labels {
-					return prometheus.Labels{"index": indexName, "step": data.FailedStep, "reason": data.StepInfo.Reason}
-				},
+				Labels: defaultILMIndexLabelValues,
 			},
 		},
 	}
@@ -140,10 +144,14 @@ func (cs *IndicesILM) Collect(ch chan<- prometheus.Metric) {
 
 	// Index stats
 	for indexName, indexILM := range asr.Indices {
-		ch <- prometheus.MustNewConstMetric(
-			indexName,
-			indexILM.FailedStep,
-			indexILM.StepInfo.Reason,
-		)
+		for _, metric := range cs.indicesMetrics {
+			ch <- prometheus.MustNewConstMetric(
+				metric.Desc,
+				metric.Type,
+				metric.Value,
+				metric.Labels(indexName, indexILM)...,
+			)
+
+
 	}
 }
