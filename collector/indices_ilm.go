@@ -152,6 +152,6 @@ func (cs *IndicesILM) Collect(ch chan<- prometheus.Metric) {
 				metric.Labels(indexName, indexILM)...,
 			)
 
-
+		}
 	}
 }
