@@ -97,7 +97,7 @@ func (cs *IndicesILM) getAndParseURL(u *url.URL, data interface{}) error {
 	}()
 
 	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("HTTP Request failed with code %d", res.StatusCode)
+		return fmt.Errorf("HTTP Request failed to %s with code %d", u.String(), res.StatusCode)
 	}
 
 	if err := json.NewDecoder(res.Body).Decode(data); err != nil {
@@ -110,7 +110,8 @@ func (cs *IndicesILM) getAndParseURL(u *url.URL, data interface{}) error {
 func (cs *IndicesILM) fetchAndDecodeIndicesILM() (IndicesILMResponse, error) {
 
 	u := *cs.url
-	u.Path = path.Join(u.Path, "/_all/_ilm/explain?filter_path=indices.*.failed_step,indices.*.step_info.reason")
+	u.Path = path.Join(u.Path, "/_all/_ilm/explain")
+	u.RawQuery = "filter_path=indices.*.failed_step,indices.*.step_info.reason"
 	var asr IndicesILMResponse
 	err := cs.getAndParseURL(&u, &asr)
 	if err != nil {
