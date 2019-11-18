@@ -24,7 +24,7 @@ func main() {
 		esAllNodes              = flag.Bool("es.all", false, "Export stats for all nodes in the cluster. If used, this flag will override the flag es.node.")
 		esNode                  = flag.String("es.node", "_local", "Node's name of which metrics should be exposed.")
 		esExportIndices         = flag.Bool("es.indices", false, "Export stats for indices in the cluster.")
-		esExportIndicesILM      = flag.Bool("es.indices_ilm", true, "Export indices ILM Errors.")
+		esExportIndicesILM      = flag.Bool("es.indices_ilm", false, "Export indices ILM Errors.")
 		esExportClusterSettings = flag.Bool("es.cluster_settings", false, "Export stats for cluster settings.")
 		esExportShards          = flag.Bool("es.shards", false, "Export stats for shards in the cluster (implies es.indices=true).")
 		esExportSnapshots       = flag.Bool("es.snapshots", false, "Export stats for the cluster snapshots.")
