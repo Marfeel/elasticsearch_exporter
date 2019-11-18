@@ -20,11 +20,10 @@ var (
 )
 
 type indexILMMetric struct {
-	Type        prometheus.ValueType
-	Desc        *prometheus.Desc
-	Value       float64
-	Labels      []string
-	LabelValues func(indexName string, data IndexStatsIndexShardsDetailResponse) []string
+	Type   prometheus.ValueType
+	Desc   *prometheus.Desc
+	Value  float64
+	Labels func(indexName string, ilmMetric IndexStatsILMResponse) []string
 }
 
 // IndicesILM information struct
