@@ -64,7 +64,7 @@ func NewIndicesILM(logger log.Logger, client *http.Client, url *url.URL) *Indice
 				Desc: prometheus.NewDesc(
 					prometheus.BuildFQName(namespace, "indices_ilm_errors", "error_step"),
 					"Indexes with ILM Errors",
-					defaultIndexLabels, nil,
+					defaultILMIndexLabels, nil,
 				),
 				Value:  1,
 				Labels: defaultILMIndexLabelValues,
